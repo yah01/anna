@@ -37,7 +37,7 @@ fn IndexIVF_test() {
     let query = &data[..nq * dim];
     let (ids, distances) = index.search(&query, k);
 
-    println!("ids={:?}, distances={:?}", ids, distances);
+    // println!("ids={:?}, distances={:?}", ids, distances);
 }
 
 fn generate_vector_data(num: usize, dim: usize) -> Vec<f32> {

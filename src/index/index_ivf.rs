@@ -1,10 +1,12 @@
 use std::cmp::*;
-use std::collections::{BinaryHeap};
+use std::collections::BinaryHeap;
 
 use crate::IndexFlatL2;
 
 use super::utils::{get_nearest_vector, get_topk, init_kmeans_centroids, vector_at, vector_at_mut};
 use super::{Index, TopkIntermediate};
+
+const kKmeansConvergePercentage: f32 = 0.01;
 
 pub struct IndexIVFFlat {
     dim: usize,
@@ -63,11 +65,12 @@ impl Index for IndexIVFFlat {
                 wcss += distance;
             }
 
-            if wcss >= last_wcss && last_wcss >= 0.0 {
+            if (last_wcss - wcss) / last_wcss <= kKmeansConvergePercentage && last_wcss >= 0.0 {
+                println!("new wcss: {}", wcss);
                 break;
             }
             last_wcss = wcss;
-            // println!("new wcss: {}", wcss);
+            println!("new wcss: {}", wcss);
 
             centroids.fill(0.);
 
