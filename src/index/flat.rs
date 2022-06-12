@@ -81,7 +81,7 @@ impl Index for IndexFlatL2 {
         for topk in query_topk {
             let mut query_ids = Vec::with_capacity(k);
             let mut query_distances = Vec::with_capacity(k);
-            for res in topk {
+            for res in topk.into_sorted_vec() {
                 query_ids.push(res.id);
                 query_distances.push(res.distance);
             }
