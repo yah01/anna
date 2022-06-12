@@ -1,12 +1,12 @@
-use anna::{Index, IndexFlatL2};
+use anna::{Index, IndexFlatL2, IndexIVFFlat};
 use rand::Rng;
 
 #[test]
 fn IndexFlatL2_test() {
     let n = 10000;
     let dim = 128;
-    let nq = 1;
-    let k = 5;
+    let nq = 10;
+    let k = 100;
 
     let mut index = IndexFlatL2::new(dim);
 
@@ -14,7 +14,27 @@ fn IndexFlatL2_test() {
     index.add(&data);
 
     // let query = generate_vector_data(nq, dim);
-    let query = &data[..dim];
+    let query = &data[..nq * dim];
+    let (ids, distances) = index.search(&query, k);
+
+    println!("ids={:?}, distances={:?}", ids, distances);
+}
+
+#[test]
+fn IndexIVF_test() {
+    let n = 10000;
+    let dim = 128;
+    let nq = 10;
+    let k = 100;
+
+    let mut index = IndexIVFFlat::new(dim, 100);
+
+    let data = generate_vector_data(n, dim);
+    index.train(&data);
+    index.add(&data);
+
+    // let query = generate_vector_data(nq, dim);
+    let query = &data[..nq * dim];
     let (ids, distances) = index.search(&query, k);
 
     println!("ids={:?}, distances={:?}", ids, distances);

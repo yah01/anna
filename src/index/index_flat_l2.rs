@@ -24,9 +24,9 @@ impl IndexFlatL2 {
 }
 
 impl Index for IndexFlatL2 {
-    fn calc_distance(&self, a: &[f32], b: &[f32]) -> f32 {
+    fn calc_distance(a: &[f32], b: &[f32]) -> f32 {
         let mut distance = 0.0;
-        for i in 0..self.dim {
+        for i in 0..a.len() {
             distance += (a[i] - b[i]).powi(2);
         }
 
@@ -66,7 +66,7 @@ impl Index for IndexFlatL2 {
             for id in 0..n {
                 let data = &self.data[id * self.dim..(id + 1) * self.dim];
 
-                let distance = self.calc_distance(query, data);
+                let distance = IndexFlatL2::calc_distance(query, data);
 
                 let topk = &mut query_topk[i];
                 if topk.len() < k {
