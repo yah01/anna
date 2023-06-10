@@ -7,13 +7,15 @@ edition = "2021"
 
 [dependencies]
 async-trait = "0.1.68"
-criterion = "0.5.1"
-log = "0.4.18"
+log = "0.4.17"
 ordered-float = "3.7.0"
 rand = "0.8.5"
 roaring = "0.10.1"
 temp-dir = "0.1.11"
-tokio = {version = "1.28.2",features = ["full"]}
+tokio = { version = "1.28.0", features = ["full"] }
+
+[dev-dependencies]
+criterion = { version = "0.4.0", features = ["async_tokio", "html_reports"] }
 
 [[bench]]
 name = "main"
