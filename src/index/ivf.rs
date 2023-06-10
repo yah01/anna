@@ -188,22 +188,25 @@ mod tests {
     use roaring::RoaringBitmap;
     use tokio::io::{BufReader, BufWriter};
 
+    const DIM: usize = 32;
+    const CLUSTER_NUM: usize = 32;
+    const DATASET_SIZE: usize = CLUSTER_NUM * CLUSTER_NUM;
+
     #[tokio::test]
     async fn test_ivf() {
-        let cluster_num = 10;
-        let accessor = Arc::new(gen_vectors(100, 128, cluster_num));
+        let accessor = Arc::new(gen_vectors(DATASET_SIZE, DIM, CLUSTER_NUM));
         let mut ivf = Ivf::new(accessor.clone());
 
         let option = TrainOption {
             iteration_num: Some(100),
-            nlist: 10,
+            nlist: CLUSTER_NUM,
             metric_type: metric::MetricType::L2,
         };
         ivf.train(&option);
 
         let option = SearchOption {
-            nprobe: 3,
-            topk: cluster_num + 1,
+            nprobe: CLUSTER_NUM / 2,
+            topk: CLUSTER_NUM + 1,
         };
 
         let bitmap = RoaringBitmap::new();
@@ -219,19 +222,18 @@ mod tests {
                     close_count += 1;
                 }
             }
-            assert_eq!(close_count, cluster_num, "result: {:?}", result);
+            assert_eq!(close_count, CLUSTER_NUM, "result: {:?}", result);
         }
     }
 
     #[tokio::test]
-    async fn ivf_serde() {
-        let cluster_num = 10;
-        let accessor = Arc::new(gen_vectors(100, 128, cluster_num));
+    async fn test_ivf_serde() {
+        let accessor = Arc::new(gen_vectors(DATASET_SIZE, DIM, CLUSTER_NUM));
         let mut ivf = Ivf::new(accessor.clone());
 
         let option = TrainOption {
             iteration_num: Some(100),
-            nlist: 10,
+            nlist: CLUSTER_NUM,
             metric_type: metric::MetricType::L2,
         };
         ivf.train(&option);
@@ -251,8 +253,8 @@ mod tests {
         assert_eq!(ivf.clusters.len(), option.nlist);
 
         let option = SearchOption {
-            nprobe: 3,
-            topk: cluster_num + 1,
+            nprobe: CLUSTER_NUM / 2,
+            topk: CLUSTER_NUM + 1,
         };
 
         let bitmap = RoaringBitmap::new();
@@ -268,7 +270,7 @@ mod tests {
                     close_count += 1;
                 }
             }
-            assert_eq!(close_count, cluster_num, "result: {:?}", result);
+            assert_eq!(close_count, CLUSTER_NUM, "result: {:?}", result);
         }
     }
 }
