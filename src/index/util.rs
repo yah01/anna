@@ -14,7 +14,7 @@
 
 use std::sync::Arc;
 
-use super::ivf::Cluster;
+use super::cluster::Cluster;
 
 pub fn rand_centroids(n: usize, vectors: Arc<dyn crate::VectorAccessor>) -> Vec<Cluster> {
     let vec_num = vectors.len();

@@ -12,13 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[repr(u8)]
+#[derive(Clone, Copy)]
 pub enum MetricType {
+    None,
     L2,
 }
 
 impl MetricType {
     pub fn distance(&self, a: &[f32], b: &[f32]) -> f32 {
         match self {
+            MetricType::None => panic!("miss to set metric type"),
             MetricType::L2 => l2_distance(a, b),
         }
     }
@@ -26,4 +30,13 @@ impl MetricType {
 
 pub fn l2_distance(a: &[f32], b: &[f32]) -> f32 {
     a.iter().zip(b.iter()).map(|(x, y)| (x - y).powi(2)).sum()
+}
+
+impl From<u8> for MetricType {
+    fn from(value: u8) -> Self {
+        match value {
+            1 => MetricType::L2,
+            _ => MetricType::None,
+        }
+    }
 }

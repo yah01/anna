@@ -2,9 +2,11 @@ pub mod error;
 pub mod index;
 pub mod metric;
 
+use std::io;
 use std::{ops::Deref, sync::Arc};
 
 use async_trait::async_trait;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 pub struct TrainOption {
     iteration_num: Option<usize>,
     nlist: usize,
@@ -29,15 +31,19 @@ pub trait AnnIndex {
         option: &SearchOption,
     ) -> Vec<usize>;
 
-    async fn serialize(&self, writer: impl std::io::Write) -> Result<(), error::Error>;
+    async fn serialize<T: AsyncWriteExt + Unpin + Send>(
+        &self,
+        writer: &mut tokio::io::BufWriter<T>,
+    ) -> Result<(), io::Error>;
 
-    async fn deserialize(reader: impl std::io::Read) -> Result<Self, error::Error>
-    where
-        Self: Sized;
+    async fn deserialize<T: AsyncReadExt + Unpin + Send>(
+        &mut self,
+        reader: &mut tokio::io::BufReader<T>,
+    ) -> Result<(), io::Error>;
 }
 
 #[async_trait]
-pub trait VectorAccessor {
+pub trait VectorAccessor: Send + Sync {
     fn dim(&self) -> usize;
     fn len(&self) -> usize;
     fn get(&self, index: usize) -> &[f32];

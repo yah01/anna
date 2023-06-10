@@ -12,21 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::{collections::BinaryHeap, sync::Arc};
-
-use ordered_float::NotNan;
-
-use crate::*;
-
 use super::util;
+use super::cluster::Cluster;
+use crate::*;
+use log::warn;
+use ordered_float::NotNan;
+use std::io;
+use std::{collections::BinaryHeap, sync::Arc};
+use tokio::io::AsyncWriteExt;
+
+const version: u16 = 1;
 
 pub struct Ivf {
-    vectors: Arc<dyn crate::VectorAccessor>,
-    nlist: usize,
+    vectors: Arc<dyn VectorAccessor>,
     clusters: Vec<Cluster>,
     metric_type: metric::MetricType,
 }
 
+impl Ivf {
+    pub fn new(vectors: Arc<dyn VectorAccessor>) -> Self {
+        Self {
+            vectors: vectors,
+            clusters: Vec::new(),
+            metric_type: metric::MetricType::None,
+        }
+    }
+}
+
+#[async_trait]
 impl crate::AnnIndex for Ivf {
     fn train(&mut self, option: &TrainOption) {
         self.metric_type = option.metric_type;
@@ -87,7 +100,7 @@ impl crate::AnnIndex for Ivf {
         let mut topk: BinaryHeap<(NotNan<f32>, usize)> = BinaryHeap::with_capacity(option.topk);
         let clusters = cluster_distances.iter().map(|(i, _)| &self.clusters[*i]);
         for cluster in clusters {
-            for i in cluster.elements() {
+            for i in &cluster.elements {
                 if !bitset.contains(*i as u32) {
                     continue;
                 }
@@ -110,50 +123,58 @@ impl crate::AnnIndex for Ivf {
         topk.into_iter().map(|(_, i)| i).collect()
     }
 
-    async fn serialize(&self, writer: impl std::io::Write) -> Result<(), error::Error> {}
-}
+    async fn serialize<T: AsyncWriteExt + Unpin + Send>(
+        &self,
+        writer: &mut tokio::io::BufWriter<T>,
+    ) -> Result<(), io::Error> {
+        // metadata part
+        writer.write_u16_le(version).await?;
+        writer.write_u8(self.metric_type as u8).await?;
+        writer.write_u32_le(self.vectors.dim() as u32).await?;
+        writer.write_u32_le(self.clusters.len() as u32).await?;
 
-pub struct Cluster {
-    size: usize,
-    centroid: Vec<f32>,
-    elements: Vec<usize>,
-}
-
-impl Cluster {
-    pub fn empty(dim: usize) -> Cluster {
-        Cluster {
-            size: 0,
-            centroid: vec![0f32; dim],
-            elements: Vec::new(),
+        for cluster in &self.clusters {
+            writer.write_u32_le(cluster.size as u32).await?;
+            for v in &cluster.centroid {
+                writer.write_f32_le(*v).await?;
+            }
+            for v in &cluster.elements {
+                writer.write_u32_le(*v as u32).await?;
+            }
         }
+
+        writer.flush().await
     }
 
-    pub fn new(size: usize, centroid: &[f32]) -> Self {
-        Self {
-            size,
-            centroid: Vec::from(centroid),
-            elements: Vec::new(),
+    async fn deserialize<T: AsyncReadExt + Unpin + Send>(
+        &mut self,
+        reader: &mut tokio::io::BufReader<T>,
+    ) -> Result<(), io::Error> {
+        let ivf_version = reader.read_u16_le().await?;
+        if ivf_version != version {
+            warn!(
+                "read newer version {} ivf index file, current version is {}",
+                ivf_version, version
+            );
         }
-    }
 
-    pub fn elements(&self) -> &[usize] {
-        &self.elements
-    }
+        self.metric_type = metric::MetricType::from(reader.read_u8().await?);
+        let dim = reader.read_u32_le().await? as usize;
+        let nlist = reader.read_u32_le().await?;
+        self.clusters = Vec::with_capacity(nlist as usize);
+        for _ in 0..nlist {
+            let mut cluster = Cluster::empty(dim);
+            cluster.size = reader.read_u32_le().await? as usize;
+            for i in 0..dim as usize {
+                cluster.centroid[i] = reader.read_f32_le().await?;
+            }
 
-    pub fn add_element(&mut self, i: usize) {
-        self.elements.push(i);
-    }
-
-    pub fn add(&mut self, vec: &[f32]) {
-        self.size += 1;
-        for i in 0..vec.len() {
-            self.centroid[i] += vec[i];
+            cluster.elements.reserve(cluster.size);
+            for _ in 0..cluster.size {
+                cluster.elements.push(reader.read_u32_le().await? as usize);
+            }
         }
-    }
 
-    pub fn calc_centroid(&mut self) {
-        for i in 0..self.centroid.len() {
-            self.centroid[i] /= self.size as f32;
-        }
+        Ok(())
     }
 }
