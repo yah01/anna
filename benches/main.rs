@@ -22,7 +22,7 @@ fn ivf_search(ivf: &Ivf) {
     let query = gen_floats(DIM);
     let deleted = roaring::RoaringBitmap::new();
     let option = SearchOption {
-        nprobe: 8,
+        nprobe: 32,
         topk: 10,
     };
     ivf.search(&query, &deleted, &option);

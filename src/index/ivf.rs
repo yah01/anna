@@ -17,13 +17,11 @@ use super::util;
 use crate::*;
 use log::warn;
 use ordered_float::NotNan;
-use std::time::Duration;
-use std::{cmp, io, time};
+use std::io;
 use std::{collections::BinaryHeap, sync::Arc};
 use tokio::io::AsyncWriteExt;
 
 const VERSION: u16 = 1;
-const MAX_CLUSTER_SIZE: usize = 256;
 
 pub struct Ivf {
     vectors: Arc<dyn VectorAccessor>,
@@ -45,109 +43,7 @@ impl Ivf {
 impl crate::AnnIndex for Ivf {
     fn train(&mut self, option: &TrainOption) {
         self.metric_type = option.metric_type;
-        self.clusters = util::rand_centroids(option.nlist, self.vectors.clone());
-
-        let mut assign_dur = Duration::ZERO;
-        let mut split_dur = Duration::ZERO;
-        let mut calc_centroid_dur = Duration::ZERO;
-        let mut iter_dur = Duration::ZERO;
-
-        let iter_num = option.iteration_num.unwrap_or(25);
-        let train_size = cmp::min(option.nlist * MAX_CLUSTER_SIZE, self.vectors.len());
-        for _ in 0..iter_num {
-            let assign_start = time::SystemTime::now();
-            let mut new_clusters: Vec<_> = (0..option.nlist).map(|_| Cluster::new()).collect();
-
-            for id in 0..train_size {
-                let vec = self.vectors.get(id);
-                let mut target = 0;
-                let mut min_distance = self.metric_type.distance(&self.clusters[0].centroid, vec);
-
-                for i in 1..self.clusters.len() {
-                    let distance = self.metric_type.distance(&self.clusters[i].centroid, vec);
-                    if distance < min_distance {
-                        target = i;
-                        min_distance = distance;
-                    }
-                }
-
-                new_clusters[target].add(id);
-            }
-
-            assign_dur += assign_start.elapsed().unwrap();
-
-            // split larger cluster to reach the expected number of clusters
-            let split_start = time::SystemTime::now();
-            let mut new_clusters: Vec<_> =
-                new_clusters.into_iter().filter(|c| c.len() > 0).collect();
-            let mut split_num = self.clusters.len() - new_clusters.len();
-            let mut splited_clusters = Vec::with_capacity(split_num);
-            new_clusters.sort_by(|a, b| a.len().cmp(&b.len()));
-
-            let mut max_cluster_idx = new_clusters.len() - 1;
-            while splited_clusters.len() < split_num {
-                splited_clusters.push(new_clusters[max_cluster_idx].split());
-                if max_cluster_idx == 0 {
-                    new_clusters.append(&mut splited_clusters);
-                    split_num = self.clusters.len() - new_clusters.len();
-                    continue;
-                }
-
-                if new_clusters[max_cluster_idx - 1].len() > new_clusters[max_cluster_idx].len() {
-                    max_cluster_idx -= 1;
-                }
-
-                if let Some(first) = splited_clusters.first() {
-                    if first.len() > new_clusters[max_cluster_idx].len() {
-                        new_clusters.append(&mut splited_clusters);
-                        split_num = self.clusters.len() - new_clusters.len();
-                    }
-                }
-            }
-            new_clusters.append(&mut splited_clusters);
-            split_dur += split_start.elapsed().unwrap();
-
-            // calculate the centroid for each cluster
-            let calc_start = time::SystemTime::now();
-            for cluster in new_clusters.iter_mut() {
-                cluster.calc_centroid(self.vectors.clone());
-            }
-            calc_centroid_dur += calc_start.elapsed().unwrap();
-
-            self.clusters = new_clusters;
-
-            iter_dur += assign_start.elapsed().unwrap();
-        }
-
-        // assign the vectors not in train set
-        for id in train_size..self.vectors.len() {
-            let vec = self.vectors.get(id);
-            let mut target = 0;
-            let mut min_distance = self.metric_type.distance(&self.clusters[0].centroid, vec);
-
-            for i in 1..self.clusters.len() {
-                let distance = self.metric_type.distance(&self.clusters[i].centroid, vec);
-                if distance < min_distance {
-                    target = i;
-                    min_distance = distance;
-                }
-            }
-
-            self.clusters[target].add(id);
-        }
-
-        assign_dur /= iter_num as u32;
-        split_dur /= iter_num as u32;
-        calc_centroid_dur /= iter_num as u32;
-        iter_dur /= iter_num as u32;
-
-        println!(
-            "\nassign_dur: {}\nsplit_dur: {}\ncalc_centroid_dur: {}\niter_dur: {}",
-            assign_dur.as_millis(),
-            split_dur.as_millis(),
-            calc_centroid_dur.as_millis(),
-            iter_dur.as_millis()
-        );
+        self.clusters = util::train_clusters(self.metric_type, self.vectors.clone(), option);
     }
 
     fn search(
