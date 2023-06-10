@@ -1,6 +1,8 @@
 pub mod error;
 pub mod index;
 pub mod metric;
+mod test_util;
+pub mod accessor;
 
 use std::io;
 use std::{ops::Deref, sync::Arc};

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::util;
 use super::cluster::Cluster;
+use super::util;
 use crate::*;
 use log::warn;
 use ordered_float::NotNan;
@@ -176,5 +176,81 @@ impl crate::AnnIndex for Ivf {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::env::temp_dir;
+
+    use roaring::RoaringBitmap;
+    use tokio::io::{BufReader, BufWriter};
+
+    use crate::index::ivf::*;
+    use crate::test_util::gen_vectors;
+
+    #[tokio::test]
+    async fn test_ivf() {
+        let accessor = Arc::new(gen_vectors(100, 128));
+        let mut ivf = Ivf::new(accessor.clone());
+
+        let option = TrainOption {
+            iteration_num: Some(100),
+            nlist: 10,
+            metric_type: metric::MetricType::L2,
+        };
+        ivf.train(&option);
+
+        let option = SearchOption {
+            nprobe: 1,
+            topk: 10,
+        };
+
+        let bitmap = RoaringBitmap::new();
+        for i in 0..accessor.len() {
+            let query = accessor.get(i);
+            let result = ivf.search(query, &bitmap, &option);
+            for id in result {
+                assert_eq!(0f32, ivf.metric_type.distance(query, accessor.get(id)));
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn ivf_serde() {
+        let accessor = Arc::new(gen_vectors(100, 128));
+        let mut ivf = Ivf::new(accessor.clone());
+
+        let option = TrainOption {
+            iteration_num: Some(100),
+            nlist: 10,
+            metric_type: metric::MetricType::L2,
+        };
+        ivf.train(&option);
+
+        let temp_dir = temp_dir::TempDir::new().unwrap();
+        let path = temp_dir.path().join("ivf_serde.ivf");
+        let ivf_file = tokio::fs::File::create(&path).await.unwrap();
+        let mut buf = BufWriter::new(ivf_file);
+        ivf.serialize(&mut buf).await.unwrap();
+
+        let ivf_file = tokio::fs::File::open(&path).await.unwrap();
+        let mut buf = BufReader::new(ivf_file);
+        let mut ivf = Ivf::new(accessor.clone());
+        ivf.deserialize(&mut buf).await.unwrap();
+
+        let option = SearchOption {
+            nprobe: 1,
+            topk: 10,
+        };
+
+        let bitmap = RoaringBitmap::new();
+        for i in 0..accessor.len() {
+            let query = accessor.get(i);
+            let result = ivf.search(query, &bitmap, &option);
+            for id in result {
+                assert_eq!(0f32, ivf.metric_type.distance(query, accessor.get(id)));
+            }
+        }
     }
 }
