@@ -15,3 +15,9 @@
 pub mod cluster;
 pub mod ivf;
 pub mod util;
+
+#[derive(Debug, Clone, Copy)]
+pub enum IndexType {
+    IvfFlat,
+    Hnsw,
+}
