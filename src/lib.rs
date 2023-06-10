@@ -1,13 +1,11 @@
+pub mod accessor;
 pub mod error;
 pub mod index;
 pub mod metric;
 mod test_util;
-pub mod accessor;
-
-use std::io;
-use std::{ops::Deref, sync::Arc};
 
 use async_trait::async_trait;
+use std::io;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 pub struct TrainOption {
     iteration_num: Option<usize>,
@@ -29,7 +27,7 @@ pub trait AnnIndex {
     fn search(
         &self,
         query_vector: &[f32],
-        bitset: &roaring::RoaringBitmap,
+        deleted: &roaring::RoaringBitmap,
         option: &SearchOption,
     ) -> Vec<usize>;
 

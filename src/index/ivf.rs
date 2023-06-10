@@ -21,7 +21,7 @@ use std::io;
 use std::{collections::BinaryHeap, sync::Arc};
 use tokio::io::AsyncWriteExt;
 
-const version: u16 = 1;
+const VERSION: u16 = 1;
 
 pub struct Ivf {
     vectors: Arc<dyn VectorAccessor>,
@@ -46,7 +46,7 @@ impl crate::AnnIndex for Ivf {
         self.clusters = util::rand_centroids(option.nlist, self.vectors.clone());
 
         let mut assign = vec![0; self.vectors.len()];
-        for iter in 0..option.iteration_num.unwrap_or(2000) {
+        for _ in 0..option.iteration_num.unwrap_or(2000) {
             let mut new_clusters: Vec<_> = (0..option.nlist)
                 .map(|_| Cluster::empty(self.vectors.dim()))
                 .collect();
@@ -84,7 +84,7 @@ impl crate::AnnIndex for Ivf {
     fn search(
         &self,
         query_vector: &[f32],
-        bitset: &roaring::RoaringBitmap,
+        deleted: &roaring::RoaringBitmap,
         option: &SearchOption,
     ) -> Vec<usize> {
         let mut cluster_distances: Vec<_> = self
@@ -101,7 +101,7 @@ impl crate::AnnIndex for Ivf {
         let clusters = cluster_distances.iter().map(|(i, _)| &self.clusters[*i]);
         for cluster in clusters {
             for i in &cluster.elements {
-                if !bitset.contains(*i as u32) {
+                if deleted.contains(*i as u32) {
                     continue;
                 }
 
@@ -128,7 +128,7 @@ impl crate::AnnIndex for Ivf {
         writer: &mut tokio::io::BufWriter<T>,
     ) -> Result<(), io::Error> {
         // metadata part
-        writer.write_u16_le(version).await?;
+        writer.write_u16_le(VERSION).await?;
         writer.write_u8(self.metric_type as u8).await?;
         writer.write_u32_le(self.vectors.dim() as u32).await?;
         writer.write_u32_le(self.clusters.len() as u32).await?;
@@ -151,10 +151,10 @@ impl crate::AnnIndex for Ivf {
         reader: &mut tokio::io::BufReader<T>,
     ) -> Result<(), io::Error> {
         let ivf_version = reader.read_u16_le().await?;
-        if ivf_version != version {
+        if ivf_version != VERSION {
             warn!(
                 "read newer version {} ivf index file, current version is {}",
-                ivf_version, version
+                ivf_version, VERSION
             );
         }
 
@@ -173,6 +173,8 @@ impl crate::AnnIndex for Ivf {
             for _ in 0..cluster.size {
                 cluster.elements.push(reader.read_u32_le().await? as usize);
             }
+
+            self.clusters.push(cluster);
         }
 
         Ok(())
@@ -181,17 +183,15 @@ impl crate::AnnIndex for Ivf {
 
 #[cfg(test)]
 mod tests {
-    use std::env::temp_dir;
-
+    use crate::index::ivf::*;
+    use crate::test_util::gen_vectors;
     use roaring::RoaringBitmap;
     use tokio::io::{BufReader, BufWriter};
 
-    use crate::index::ivf::*;
-    use crate::test_util::gen_vectors;
-
     #[tokio::test]
     async fn test_ivf() {
-        let accessor = Arc::new(gen_vectors(100, 128));
+        let cluster_num = 10;
+        let accessor = Arc::new(gen_vectors(100, 128, cluster_num));
         let mut ivf = Ivf::new(accessor.clone());
 
         let option = TrainOption {
@@ -202,23 +202,31 @@ mod tests {
         ivf.train(&option);
 
         let option = SearchOption {
-            nprobe: 1,
-            topk: 10,
+            nprobe: 3,
+            topk: cluster_num + 1,
         };
 
         let bitmap = RoaringBitmap::new();
         for i in 0..accessor.len() {
             let query = accessor.get(i);
             let result = ivf.search(query, &bitmap, &option);
-            for id in result {
-                assert_eq!(0f32, ivf.metric_type.distance(query, accessor.get(id)));
+            assert_eq!(result.len(), option.topk);
+
+            let mut close_count = 0;
+            for id in &result {
+                let distance = ivf.metric_type.distance(query, accessor.get(*id));
+                if distance == 0f32 {
+                    close_count += 1;
+                }
             }
+            assert_eq!(close_count, cluster_num, "result: {:?}", result);
         }
     }
 
     #[tokio::test]
     async fn ivf_serde() {
-        let accessor = Arc::new(gen_vectors(100, 128));
+        let cluster_num = 10;
+        let accessor = Arc::new(gen_vectors(100, 128, cluster_num));
         let mut ivf = Ivf::new(accessor.clone());
 
         let option = TrainOption {
@@ -239,18 +247,28 @@ mod tests {
         let mut ivf = Ivf::new(accessor.clone());
         ivf.deserialize(&mut buf).await.unwrap();
 
+        assert_eq!(ivf.metric_type, metric::MetricType::L2);
+        assert_eq!(ivf.clusters.len(), option.nlist);
+
         let option = SearchOption {
-            nprobe: 1,
-            topk: 10,
+            nprobe: 3,
+            topk: cluster_num + 1,
         };
 
         let bitmap = RoaringBitmap::new();
         for i in 0..accessor.len() {
             let query = accessor.get(i);
             let result = ivf.search(query, &bitmap, &option);
-            for id in result {
-                assert_eq!(0f32, ivf.metric_type.distance(query, accessor.get(id)));
+            assert_eq!(result.len(), option.topk);
+
+            let mut close_count = 0;
+            for id in &result {
+                let distance = ivf.metric_type.distance(query, accessor.get(*id));
+                if distance == 0f32 {
+                    close_count += 1;
+                }
             }
+            assert_eq!(close_count, cluster_num, "result: {:?}", result);
         }
     }
 }

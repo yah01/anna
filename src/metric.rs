@@ -13,7 +13,7 @@
 // limitations under the License.
 
 #[repr(u8)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum MetricType {
     None,
     L2,

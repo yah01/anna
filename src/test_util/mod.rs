@@ -1,8 +1,7 @@
 use crate::accessor::MemoryVectorAccessor;
 use crate::VectorAccessor;
 
-pub fn gen_vectors(n: usize, dim: usize) -> impl VectorAccessor {
-    let cluster_num = 10;
+pub fn gen_vectors(n: usize, dim: usize, cluster_num: usize) -> impl VectorAccessor {
     let centroids: Vec<_> = (0..cluster_num).map(|_| gen_floats(dim)).collect();
 
     let mut vectors = Vec::with_capacity(n * dim);
