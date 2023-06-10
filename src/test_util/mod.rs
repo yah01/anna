@@ -1,3 +1,5 @@
+use rand::Rng;
+
 use crate::accessor::MemoryVectorAccessor;
 use crate::VectorAccessor;
 
@@ -13,5 +15,6 @@ pub fn gen_vectors(n: usize, dim: usize, cluster_num: usize) -> impl VectorAcces
 }
 
 pub fn gen_floats(n: usize) -> Vec<f32> {
-    (0..n).map(|_| rand::random()).collect()
+    let mut rng = rand::thread_rng();
+    (0..n).map(|_| rng.gen()).collect()
 }
