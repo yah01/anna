@@ -213,7 +213,12 @@ mod tests {
         for i in 0..accessor.len() {
             let query = accessor.get(i);
             let result = ivf.search(query, &bitmap, &option);
-            assert_eq!(result.len(), option.topk);
+            assert_eq!(
+                result.len(),
+                option.topk,
+                "failed to search, cluster_num={}",
+                ivf.clusters.len()
+            );
 
             let mut close_count = 0;
             for id in &result {
@@ -261,7 +266,12 @@ mod tests {
         for i in 0..accessor.len() {
             let query = accessor.get(i);
             let result = ivf.search(query, &bitmap, &option);
-            assert_eq!(result.len(), option.topk);
+            assert_eq!(
+                result.len(),
+                option.topk,
+                "failed to search, cluster_num={}",
+                ivf.clusters.len()
+            );
 
             let mut close_count = 0;
             for id in &result {
