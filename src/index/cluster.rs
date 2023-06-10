@@ -1,44 +1,63 @@
+use std::sync::Arc;
+
+use crate::VectorAccessor;
+
 #[derive(Debug)]
 pub struct Cluster {
-    pub size: usize,
     pub centroid: Vec<f32>,
     pub elements: Vec<usize>,
 }
 
 impl Cluster {
-    pub fn empty(dim: usize) -> Cluster {
+    pub fn new() -> Cluster {
         Cluster {
-            size: 0,
-            centroid: vec![0f32; dim],
+            centroid: Vec::new(),
             elements: Vec::new(),
         }
     }
 
-    pub fn new(size: usize, centroid: &[f32]) -> Self {
+    pub fn with_centroid(centroid: &[f32]) -> Self {
         Self {
-            size,
             centroid: Vec::from(centroid),
             elements: Vec::new(),
         }
     }
 
-    pub fn add_element(&mut self, i: usize) {
-        self.elements.push(i);
+    pub fn len(&self) -> usize {
+        self.elements.len()
     }
 
-    pub fn add(&mut self, vec: &[f32]) {
-        self.size += 1;
-        for i in 0..vec.len() {
-            self.centroid[i] += vec[i];
-        }
+    pub fn add(&mut self, id: usize) {
+        self.elements.push(id);
     }
 
-    pub fn calc_centroid(&mut self) {
-        if self.size == 0 {
-            return;
+    pub fn split(&mut self) -> Self {
+        let split_num = self.elements.len() / 2;
+        let mut new = Self::new();
+        new.elements = self
+            .elements
+            .drain((self.elements.len() - split_num)..)
+            .collect();
+
+        new
+    }
+
+    pub fn calc_centroid(&mut self, accessor: Arc<dyn VectorAccessor>) {
+        if self.elements.len() == 0 {
+            panic!("can't calculate centroid for empty cluster");
         }
-        for i in 0..self.centroid.len() {
-            self.centroid[i] /= self.size as f32;
+
+        self.centroid.resize(accessor.dim(), 0f32);
+
+        for id in self.elements.iter() {
+            let vec = accessor.get(*id);
+            for i in 0..accessor.dim() {
+                self.centroid[i] += vec[i];
+            }
+        }
+
+        for i in 0..accessor.dim() {
+            self.centroid[i] /= self.elements.len() as f32;
         }
     }
 }

@@ -20,6 +20,6 @@ pub fn rand_centroids(n: usize, vectors: Arc<dyn crate::VectorAccessor>) -> Vec<
     let vec_num = vectors.len();
     (0..n)
         .into_iter()
-        .map(|_| Cluster::new(1, vectors.get(rand::random::<usize>() % vec_num)))
+        .map(|_| Cluster::with_centroid(vectors.get(rand::random::<usize>() % vec_num)))
         .collect()
 }

@@ -1,21 +1,24 @@
+#![feature(array_chunks)]
+#![feature(portable_simd)]
+
 pub mod accessor;
 pub mod error;
 pub mod index;
 pub mod metric;
-mod test_util;
+pub mod test_util;
 
 use async_trait::async_trait;
 use std::io;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 pub struct TrainOption {
-    iteration_num: Option<usize>,
-    nlist: usize,
-    metric_type: metric::MetricType, // ... index related options
+    pub iteration_num: Option<usize>,
+    pub nlist: usize,
+    pub metric_type: metric::MetricType, // ... index related options
 }
 
 pub struct SearchOption {
-    nprobe: usize,
-    topk: usize,
+    pub nprobe: usize,
+    pub topk: usize,
     // ... another index related options
 }
 

@@ -7,9 +7,14 @@ edition = "2021"
 
 [dependencies]
 async-trait = "0.1.68"
+criterion = "0.5.1"
 log = "0.4.18"
 ordered-float = "3.7.0"
 rand = "0.8.5"
 roaring = "0.10.1"
 temp-dir = "0.1.11"
 tokio = {version = "1.28.2",features = ["full"]}
+
+[[bench]]
+name = "main"
+harness = false
