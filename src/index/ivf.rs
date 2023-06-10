@@ -44,28 +44,32 @@ impl crate::AnnIndex for Ivf {
     fn train(&mut self, option: &TrainOption) {
         self.metric_type = option.metric_type;
         self.clusters = util::rand_centroids(option.nlist, self.vectors.clone());
+        println!("init clusters: {:?}", self.clusters);
 
         let mut assign = vec![0; self.vectors.len()];
-        for _ in 0..option.iteration_num.unwrap_or(2000) {
+        let iter_num = option.iteration_num.unwrap_or(2000);
+        println!("iter num: {}", iter_num);
+        for _ in 0..iter_num {
             let mut new_clusters: Vec<_> = (0..option.nlist)
                 .map(|_| Cluster::empty(self.vectors.dim()))
                 .collect();
 
-            for i in 0..self.vectors.len() {
-                let vec = self.vectors.get(i);
+            for id in 0..self.vectors.len() {
+                let vec = self.vectors.get(id);
                 let target = self
                     .clusters
                     .iter()
                     .enumerate()
                     .min_by(|(_, a), (_, b)| {
-                        self.metric_type
-                            .distance(&a.centroid, vec)
-                            .total_cmp(&self.metric_type.distance(&b.centroid, vec))
+                        let dis_a = self.metric_type.distance(&a.centroid, vec);
+                        let dis_b = self.metric_type.distance(&b.centroid, vec);
+
+                        dis_a.total_cmp(&dis_b)
                     })
                     .map(|(index, _)| index)
                     .unwrap();
 
-                assign[i] = target;
+                assign[id] = target;
                 new_clusters[target].add(vec);
             }
 
@@ -76,7 +80,10 @@ impl crate::AnnIndex for Ivf {
             self.clusters = new_clusters;
         }
 
+        println!("result clusters: {:?}", self.clusters);
+
         for (i, assign) in assign.iter().enumerate() {
+            println!("assign vector {} to cluster {}", i, assign);
             self.clusters[*assign].add_element(i);
         }
     }

@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct Cluster {
     pub size: usize,
     pub centroid: Vec<f32>,
@@ -33,6 +34,9 @@ impl Cluster {
     }
 
     pub fn calc_centroid(&mut self) {
+        if self.size == 0 {
+            return;
+        }
         for i in 0..self.centroid.len() {
             self.centroid[i] /= self.size as f32;
         }
