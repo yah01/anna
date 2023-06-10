@@ -20,6 +20,7 @@ impl VectorAccessor for MemoryVectorAccessor {
         self.vectors.len() / self.dim
     }
 
+    #[inline(always)]
     fn get(&self, index: usize) -> &[f32] {
         &self.vectors[index * self.dim..(index + 1) * self.dim]
     }

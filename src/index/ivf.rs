@@ -120,7 +120,7 @@ impl crate::AnnIndex for Ivf {
             }
         }
 
-        topk.into_iter().map(|(_, i)| i).collect()
+        topk.iter().map(|(_, i)| *i).collect()
     }
 
     async fn serialize<T: AsyncWriteExt + Unpin + Send>(
