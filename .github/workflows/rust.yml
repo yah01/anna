@@ -16,5 +16,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+
+    - name: Install & Activate nightly toolchain
+      run: rustup toolchain install nightly && rustup default nightly
+      
     - name: Run tests
       run: cargo test --lib --verbose -- --nocapture
