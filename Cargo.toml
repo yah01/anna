@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+datafusion = { version = "24.0.0", features = ["simd"] }
 async-trait = "0.1.68"
 log = "0.4.17"
 ordered-float = "3.7.0"

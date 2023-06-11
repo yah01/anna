@@ -17,8 +17,8 @@ use super::util;
 use crate::*;
 use log::warn;
 use ordered_float::NotNan;
-use std::io;
 use std::{collections::BinaryHeap, sync::Arc};
+use std::{io, pin::Pin};
 use tokio::io::AsyncWriteExt;
 
 const VERSION: u16 = 1;
@@ -88,9 +88,9 @@ impl crate::AnnIndex for Ivf {
         topk.iter().map(|(_, i)| *i).collect()
     }
 
-    async fn serialize<T: AsyncWriteExt + Unpin + Send>(
+    async fn serialize(
         &self,
-        writer: &mut tokio::io::BufWriter<T>,
+        mut writer: Pin<Box<dyn tokio::io::AsyncWrite + Send>>,
     ) -> Result<(), io::Error> {
         // metadata part
         writer.write_u16_le(VERSION).await?;
@@ -111,9 +111,9 @@ impl crate::AnnIndex for Ivf {
         writer.flush().await
     }
 
-    async fn deserialize<T: AsyncReadExt + Unpin + Send>(
+    async fn deserialize(
         &mut self,
-        reader: &mut tokio::io::BufReader<T>,
+        mut reader: Pin<Box<dyn tokio::io::AsyncRead + Send>>,
     ) -> Result<(), io::Error> {
         let ivf_version = reader.read_u16_le().await?;
         if ivf_version != VERSION {
@@ -212,13 +212,13 @@ mod tests {
         let temp_dir = temp_dir::TempDir::new().unwrap();
         let path = temp_dir.path().join("ivf_serde.ivf");
         let ivf_file = tokio::fs::File::create(&path).await.unwrap();
-        let mut buf = BufWriter::new(ivf_file);
-        ivf.serialize(&mut buf).await.unwrap();
+        let buf = BufWriter::new(ivf_file);
+        ivf.serialize(Box::pin(buf)).await.unwrap();
 
         let ivf_file = tokio::fs::File::open(&path).await.unwrap();
-        let mut buf = BufReader::new(ivf_file);
+        let buf = BufReader::new(ivf_file);
         let mut ivf = Ivf::new(accessor.clone());
-        ivf.deserialize(&mut buf).await.unwrap();
+        ivf.deserialize(Box::pin(buf)).await.unwrap();
 
         assert_eq!(ivf.metric_type, metric::MetricType::L2);
         assert_eq!(ivf.clusters.len(), option.nlist);

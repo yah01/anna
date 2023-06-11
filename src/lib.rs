@@ -8,8 +8,8 @@ pub mod metric;
 pub mod test_util;
 
 use async_trait::async_trait;
-use std::io;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use std::{io, pin::Pin};
+use tokio::io::AsyncReadExt;
 
 #[derive(Debug, Clone, Copy)]
 pub struct TrainOption {
@@ -37,14 +37,14 @@ pub trait AnnIndex {
         option: &SearchOption,
     ) -> Vec<usize>;
 
-    async fn serialize<T: AsyncWriteExt + Unpin + Send>(
+    async fn serialize(
         &self,
-        writer: &mut tokio::io::BufWriter<T>,
+        mut writer: Pin<Box<dyn tokio::io::AsyncWrite + Send>>,
     ) -> Result<(), io::Error>;
 
-    async fn deserialize<T: AsyncReadExt + Unpin + Send>(
+    async fn deserialize(
         &mut self,
-        reader: &mut tokio::io::BufReader<T>,
+        mut reader: Pin<Box<dyn tokio::io::AsyncRead + Send>>,
     ) -> Result<(), io::Error>;
 }
 

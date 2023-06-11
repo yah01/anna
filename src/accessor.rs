@@ -1,4 +1,6 @@
 use crate::VectorAccessor;
+use datafusion::arrow::array::*;
+use std::sync::Arc;
 
 pub struct MemoryVectorAccessor {
     dim: usize,
@@ -23,5 +25,25 @@ impl VectorAccessor for MemoryVectorAccessor {
     #[inline(always)]
     fn get(&self, index: usize) -> &[f32] {
         &self.vectors[index * self.dim..(index + 1) * self.dim]
+    }
+}
+
+pub struct ArrowVectorAccessor {
+    dim: usize,
+    vectors: Arc<FixedSizeBinaryArray>,
+}
+
+impl VectorAccessor for ArrowVectorAccessor {
+    fn dim(&self) -> usize {
+        self.dim
+    }
+
+    fn len(&self) -> usize {
+        self.vectors.len()
+    }
+
+    fn get(&self, index: usize) -> &[f32] {
+        let vec = self.vectors.value(index);
+        unsafe { std::slice::from_raw_parts(vec.as_ptr() as *const f32, self.dim as usize) }
     }
 }

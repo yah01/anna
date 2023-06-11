@@ -16,8 +16,20 @@ pub mod cluster;
 pub mod ivf;
 pub mod util;
 
+use std::sync::Arc;
+
+use crate::{AnnIndex, VectorAccessor};
+
 #[derive(Debug, Clone, Copy)]
 pub enum IndexType {
     IvfFlat,
     Hnsw,
+}
+
+pub fn new(typ: IndexType, accessor: Arc<dyn VectorAccessor>) -> Arc<dyn AnnIndex> {
+    match typ {
+        IndexType::IvfFlat => Arc::new(ivf::Ivf::new(accessor)),
+        // IndexType::Hnsw => Arc::new(ivf::Hnsw::new(accessor)),
+        _ => unimplemented!("unsupported index type"),
+    }
 }
