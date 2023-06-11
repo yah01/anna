@@ -27,7 +27,7 @@ pub struct SearchOption {
 
 // T could be f16, f32, f64, u8
 #[async_trait]
-pub trait AnnIndex {
+pub trait AnnIndex: Send {
     fn train(&mut self, option: &TrainOption);
 
     fn search(
