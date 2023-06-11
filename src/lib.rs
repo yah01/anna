@@ -10,12 +10,15 @@ pub mod test_util;
 use async_trait::async_trait;
 use std::io;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+#[derive(Debug, Clone, Copy)]
 pub struct TrainOption {
     pub iteration_num: Option<usize>,
     pub nlist: usize,
     pub metric_type: metric::MetricType, // ... index related options
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct SearchOption {
     pub nprobe: usize,
     pub topk: usize,
