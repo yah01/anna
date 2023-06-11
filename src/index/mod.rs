@@ -18,6 +18,8 @@ pub mod util;
 
 use std::sync::Arc;
 
+use tokio::sync::RwLock;
+
 use crate::{AnnIndex, VectorAccessor};
 
 #[derive(Debug, Clone, Copy)]
@@ -26,9 +28,9 @@ pub enum IndexType {
     Hnsw,
 }
 
-pub fn new(typ: IndexType, accessor: Arc<dyn VectorAccessor>) -> Arc<dyn AnnIndex> {
+pub fn new(typ: IndexType, accessor: Arc<dyn VectorAccessor>) -> Arc<RwLock<dyn AnnIndex>> {
     match typ {
-        IndexType::IvfFlat => Arc::new(ivf::Ivf::new(accessor)),
+        IndexType::IvfFlat => Arc::new(RwLock::new(ivf::Ivf::new(accessor))),
         // IndexType::Hnsw => Arc::new(ivf::Hnsw::new(accessor)),
         _ => unimplemented!("unsupported index type"),
     }
