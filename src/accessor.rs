@@ -29,13 +29,18 @@ impl VectorAccessor for MemoryVectorAccessor {
 }
 
 pub struct ArrowVectorAccessor {
-    dim: usize,
     vectors: Arc<FixedSizeBinaryArray>,
+}
+
+impl ArrowVectorAccessor {
+    pub fn new(array: Arc<FixedSizeBinaryArray>) -> Self {
+        Self { vectors: array }
+    }
 }
 
 impl VectorAccessor for ArrowVectorAccessor {
     fn dim(&self) -> usize {
-        self.dim
+        self.vectors.value_length() as usize / std::mem::size_of::<f32>()
     }
 
     fn len(&self) -> usize {
@@ -44,6 +49,6 @@ impl VectorAccessor for ArrowVectorAccessor {
 
     fn get(&self, index: usize) -> &[f32] {
         let vec = self.vectors.value(index);
-        unsafe { std::slice::from_raw_parts(vec.as_ptr() as *const f32, self.dim as usize) }
+        unsafe { std::slice::from_raw_parts(vec.as_ptr() as *const f32, self.dim()) }
     }
 }
