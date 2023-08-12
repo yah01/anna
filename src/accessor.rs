@@ -29,11 +29,11 @@ impl VectorAccessor for MemoryVectorAccessor {
 }
 
 pub struct ArrowVectorAccessor {
-    vectors: Arc<FixedSizeBinaryArray>,
+    vectors: FixedSizeBinaryArray,
 }
 
 impl ArrowVectorAccessor {
-    pub fn new(array: Arc<FixedSizeBinaryArray>) -> Self {
+    pub fn new(array: FixedSizeBinaryArray) -> Self {
         Self { vectors: array }
     }
 }
