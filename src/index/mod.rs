@@ -13,6 +13,8 @@
 // limitations under the License.
 
 pub mod cluster;
+mod graph;
+pub mod hnsw;
 pub mod ivf;
 pub mod util;
 

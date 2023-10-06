@@ -22,7 +22,12 @@ pub fn rand_centroids(n: usize, vectors: Arc<dyn crate::VectorAccessor>) -> Vec<
     let vec_num = vectors.len();
     (0..n)
         .into_iter()
-        .map(|_| Cluster::with_centroid(vectors.get(rand::random::<usize>() % vec_num)))
+        .map(|_| {
+            Cluster::with_centroid(
+                vectors.clone(),
+                vectors.get(rand::random::<usize>() % vec_num),
+            )
+        })
         .collect()
 }
 
@@ -33,10 +38,14 @@ pub fn train_clusters(
 ) -> Vec<Cluster> {
     let mut clusters = rand_centroids(option.nlist, vectors.clone());
 
-    let iter_num = option.iteration_num.unwrap_or(25);
+    let iter_num = option.iteration_num.unwrap_or(10);
     let train_size = cmp::min(option.nlist * MAX_CLUSTER_SIZE, vectors.len());
+    let mut last_wcss = 0f32;
     for _ in 0..iter_num {
-        let mut new_clusters: Vec<_> = (0..option.nlist).map(|_| Cluster::new()).collect();
+        let mut wcss = 0f32;
+        let mut new_clusters: Vec<_> = (0..option.nlist)
+            .map(|_| Cluster::new(vectors.clone()))
+            .collect();
 
         for id in 0..train_size {
             let vec = vectors.get(id);
@@ -84,10 +93,17 @@ pub fn train_clusters(
 
         // calculate the centroid for each cluster
         for cluster in new_clusters.iter_mut() {
-            cluster.calc_centroid(vectors.clone());
+            wcss += cluster.calc_centroid();
         }
 
+        if wcss > last_wcss {
+            break;
+        }
         clusters = new_clusters;
+        if wcss >= last_wcss {
+            break;
+        }
+        last_wcss = wcss;
     }
 
     // assign the vectors not in train set

@@ -8,14 +8,21 @@ pub mod metric;
 pub mod test_util;
 
 use async_trait::async_trait;
-use std::{io, pin::Pin};
+use std::{fmt::Debug, io, pin::Pin};
 use tokio::io::AsyncReadExt;
 
 #[derive(Debug, Clone, Copy)]
 pub struct TrainOption {
+    pub metric_type: metric::MetricType, // ... index related options
+
+    // ivf related options
     pub iteration_num: Option<usize>,
     pub nlist: usize,
-    pub metric_type: metric::MetricType, // ... index related options
+
+    // hnsw related options
+    pub m: usize,
+    pub ef: usize,
+    pub max_layer_num: Option<usize>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -47,9 +54,8 @@ pub trait AnnIndex: Send + Sync {
         mut reader: Pin<Box<dyn tokio::io::AsyncRead + Send>>,
     ) -> Result<(), io::Error>;
 }
-
 #[async_trait]
-pub trait VectorAccessor: Send + Sync {
+pub trait VectorAccessor: Debug + Send + Sync {
     fn dim(&self) -> usize;
     fn len(&self) -> usize;
     fn get(&self, index: usize) -> &[f32];

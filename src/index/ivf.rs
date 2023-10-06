@@ -23,6 +23,7 @@ use tokio::io::AsyncWriteExt;
 
 const VERSION: u16 = 1;
 
+#[derive(Debug)]
 pub struct Ivf {
     vectors: Arc<dyn VectorAccessor>,
     clusters: Vec<Cluster>,
@@ -128,7 +129,7 @@ impl crate::AnnIndex for Ivf {
         let nlist = reader.read_u32_le().await?;
         self.clusters = Vec::with_capacity(nlist as usize);
         for _ in 0..nlist {
-            let mut cluster = Cluster::new();
+            let mut cluster = Cluster::new(self.vectors.clone());
             cluster.centroid.reserve(dim);
             let size = reader.read_u32_le().await? as usize;
             for _ in 0..dim as usize {

@@ -1,14 +1,15 @@
 use crate::VectorAccessor;
+use bytes::Bytes;
 use datafusion::arrow::array::*;
-use std::sync::Arc;
 
+#[derive(Debug)]
 pub struct MemoryVectorAccessor {
     dim: usize,
-    vectors: Vec<f32>,
+    vectors: Bytes,
 }
 
 impl MemoryVectorAccessor {
-    pub fn new(dim: usize, vectors: Vec<f32>) -> Self {
+    pub fn new(dim: usize, vectors: Bytes) -> Self {
         Self { dim, vectors }
     }
 }
@@ -19,15 +20,18 @@ impl VectorAccessor for MemoryVectorAccessor {
     }
 
     fn len(&self) -> usize {
-        self.vectors.len() / self.dim
+        self.vectors.len() / self.dim / std::mem::size_of::<f32>()
     }
 
     #[inline(always)]
     fn get(&self, index: usize) -> &[f32] {
-        &self.vectors[index * self.dim..(index + 1) * self.dim]
+        let size = self.dim * std::mem::size_of::<f32>();
+        let vec = &self.vectors[index * size..(index + 1) * size];
+        unsafe { std::slice::from_raw_parts(vec.as_ptr() as *const f32, self.dim()) }
     }
 }
 
+#[derive(Debug)]
 pub struct ArrowVectorAccessor {
     vectors: FixedSizeBinaryArray,
 }
